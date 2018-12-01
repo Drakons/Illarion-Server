@@ -126,6 +126,27 @@ CREATE FUNCTION is_new_player(account_id integer) RETURNS boolean
 
 
 --
+-- Name: protect_itm_name(); Type: FUNCTION; Schema: server; Owner: -
+--
+
+CREATE FUNCTION protect_itm_name() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$BEGIN
+
+    IF (TG_OP = 'UPDATE') THEN
+
+        IF OLD.itm_name IS NOT NULL AND NEW.itm_name <> OLD.itm_name THEN
+            RAISE EXCEPTION 'itm_name is protected, cannot replace % with %.', OLD.itm_name, NEW.itm_name;
+        END IF;
+
+    END IF;
+
+    RETURN NEW;
+
+END;$$;
+
+
+--
 -- Name: resort_items(integer); Type: FUNCTION; Schema: server; Owner: -
 --
 
@@ -250,7 +271,7 @@ CREATE TABLE account (
     acc_id integer DEFAULT nextval(('account_seq'::text)::regclass) NOT NULL,
     acc_login character varying(50) DEFAULT 'noname'::character varying NOT NULL,
     acc_passwd character varying(50) DEFAULT 'nopasswd'::character varying NOT NULL,
-    acc_email character varying(50) DEFAULT 'noemail'::character varying NOT NULL,
+    acc_email character varying(50),
     acc_registerdate timestamp without time zone,
     acc_lastip inet NOT NULL,
     acc_state integer DEFAULT 1 NOT NULL,
@@ -325,6 +346,45 @@ CREATE TABLE account_sessions (
     as_ip inet NOT NULL,
     as_created timestamp without time zone DEFAULT now() NOT NULL
 );
+
+
+--
+-- Name: account_unconfirmed; Type: TABLE; Schema: accounts; Owner: -; Tablespace: 
+--
+
+CREATE TABLE account_unconfirmed (
+    au_id uuid NOT NULL,
+    au_acc_id integer NOT NULL,
+    au_mail character varying(50) NOT NULL
+);
+
+
+--
+-- Name: TABLE account_unconfirmed; Type: COMMENT; Schema: accounts; Owner: -
+--
+
+COMMENT ON TABLE account_unconfirmed IS 'This table contains the unconfirmed e-mail addresses.';
+
+
+--
+-- Name: COLUMN account_unconfirmed.au_id; Type: COMMENT; Schema: accounts; Owner: -
+--
+
+COMMENT ON COLUMN account_unconfirmed.au_id IS 'The ID that is part of the activation link';
+
+
+--
+-- Name: COLUMN account_unconfirmed.au_acc_id; Type: COMMENT; Schema: accounts; Owner: -
+--
+
+COMMENT ON COLUMN account_unconfirmed.au_acc_id IS 'The ID of the linked account.';
+
+
+--
+-- Name: COLUMN account_unconfirmed.au_mail; Type: COMMENT; Schema: accounts; Owner: -
+--
+
+COMMENT ON COLUMN account_unconfirmed.au_mail IS 'The new e-mail address of the account.';
 
 
 --
@@ -605,11 +665,9 @@ CREATE TABLE armor (
     arm_magicdisturbance integer NOT NULL,
     arm_absorb smallint DEFAULT 0 NOT NULL,
     arm_stiffness smallint DEFAULT 0 NOT NULL,
-    arm_level smallint DEFAULT 0 NOT NULL,
     arm_type smallint DEFAULT 0 NOT NULL,
     CONSTRAINT armor_absorb_check CHECK ((arm_absorb >= 0)),
     CONSTRAINT armor_bodyparts_check CHECK (((arm_bodyparts >= 0) AND (arm_bodyparts < 256))),
-    CONSTRAINT armor_level_check CHECK (((arm_level >= 0) AND (arm_level <= 100))),
     CONSTRAINT armor_magicdist_check CHECK (((arm_magicdisturbance >= 0) AND (arm_magicdisturbance <= 100))),
     CONSTRAINT armor_puncture_check CHECK (((arm_puncture >= 0) AND (arm_puncture <= 200))),
     CONSTRAINT armor_stiffness_check CHECK (((arm_stiffness >= 0) AND (arm_stiffness <= 200))),
@@ -1344,7 +1402,7 @@ CREATE TABLE player (
     ply_magicflagsdruid bigint DEFAULT 0 NOT NULL,
     ply_lastmusic integer DEFAULT 0 NOT NULL,
     ply_poison smallint DEFAULT 0 NOT NULL,
-    ply_mental_capacity integer DEFAULT 2000000 NOT NULL,
+    ply_mental_capacity integer DEFAULT 5000000 NOT NULL,
     ply_dob integer DEFAULT 0 NOT NULL,
     ply_hair smallint DEFAULT 0 NOT NULL,
     ply_beard smallint DEFAULT 0 NOT NULL,
@@ -2152,12 +2210,10 @@ CREATE TABLE weapon (
     wp_magicdisturbance integer NOT NULL,
     wp_poison smallint NOT NULL,
     wp_fightingscript character varying(50),
-    wp_level smallint DEFAULT 0 NOT NULL,
     CONSTRAINT weapon_accuracy_check CHECK (((wp_accuracy > 0) AND (wp_accuracy <= 100))),
     CONSTRAINT weapon_ap_check CHECK (((wp_actionpoints > 0) AND (wp_actionpoints <= 100))),
     CONSTRAINT weapon_attack_check CHECK (((wp_attack >= 0) AND (wp_attack <= 200))),
     CONSTRAINT weapon_defence_check CHECK (((wp_defence >= 0) AND (wp_defence <= 200))),
-    CONSTRAINT weapon_level_check CHECK (((wp_level >= 0) AND (wp_level <= 100))),
     CONSTRAINT weapon_magicdist_check CHECK (((wp_magicdisturbance >= 0) AND (wp_magicdisturbance <= 200))),
     CONSTRAINT weapon_poison_check CHECK (((wp_poison >= 0) AND (wp_poison <= 100))),
     CONSTRAINT weapon_range_check CHECK (((wp_range > 0) AND (wp_range <= 10))),
@@ -2213,6 +2269,14 @@ ALTER TABLE ONLY account
 
 ALTER TABLE ONLY account_sessions
     ADD CONSTRAINT account_sessions_pkey PRIMARY KEY (as_id);
+
+
+--
+-- Name: account_unconfirmed_pkey; Type: CONSTRAINT; Schema: accounts; Owner: -; Tablespace: 
+--
+
+ALTER TABLE ONLY account_unconfirmed
+    ADD CONSTRAINT account_unconfirmed_pkey PRIMARY KEY (au_id);
 
 
 --
@@ -2892,6 +2956,13 @@ CREATE RULE gmrights_update AS
   WHERE ((gms.gm_login)::text = (new.gm_login)::text);
 
 
+--
+-- Name: protect_itm_name; Type: TRIGGER; Schema: server; Owner: -
+--
+
+CREATE TRIGGER protect_itm_name BEFORE UPDATE ON items FOR EACH ROW EXECUTE PROCEDURE protect_itm_name();
+
+
 SET search_path = accounts, pg_catalog;
 
 --
@@ -2948,6 +3019,14 @@ ALTER TABLE ONLY account_log
 
 ALTER TABLE ONLY account_sessions
     ADD CONSTRAINT account_sessions_as_account_id_fkey FOREIGN KEY (as_account_id) REFERENCES account(acc_id) MATCH FULL ON UPDATE CASCADE ON DELETE CASCADE;
+
+
+--
+-- Name: account_unconfirmed_au_acc_id_fkey; Type: FK CONSTRAINT; Schema: accounts; Owner: -
+--
+
+ALTER TABLE ONLY account_unconfirmed
+    ADD CONSTRAINT account_unconfirmed_au_acc_id_fkey FOREIGN KEY (au_acc_id) REFERENCES account(acc_id) MATCH FULL ON UPDATE CASCADE ON DELETE CASCADE;
 
 
 SET search_path = server, pg_catalog;

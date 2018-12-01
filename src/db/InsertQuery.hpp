@@ -47,7 +47,7 @@ public:
     static const uint32_t FILL = UINT32_C(0xFFFFFFFF);
 
     InsertQuery();
-    InsertQuery(const PConnection connection);
+    explicit InsertQuery(const PConnection connection);
     InsertQuery(const InsertQuery &org) = delete;
     InsertQuery &operator=(const InsertQuery &org) = delete;
     virtual ~InsertQuery();
@@ -68,7 +68,6 @@ public:
         }
 
         std::string strValue = quote<T>(value);
-        std::vector<std::string *> *dataRow;
 
         if (!dataStorage.empty()) {
             for (const auto &dataRow : dataStorage) {
@@ -92,7 +91,7 @@ public:
         }
 
         while (count-- > 0) {
-            dataRow = new std::vector<std::string *>(columns, 0);
+            auto dataRow = new std::vector<std::string *>(columns, 0);
             dataStorage.push_back(dataRow);
             dataRow->at(column) = new std::string(strValue);
         }

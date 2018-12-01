@@ -76,8 +76,8 @@ public:
     // exception is thrown if logout of player is only possible result
     class LogoutException {
     public:
-        LogoutException(const char &reason) : m_reason(reason) {}
-        inline const char &getReason() {
+        explicit LogoutException(const char &reason) : m_reason(reason) {}
+        inline const char &getReason() const {
             return m_reason;
         }
     private:
@@ -277,7 +277,7 @@ public:
     virtual void sendCharDescription(TYPE_OF_CHARACTER_ID id,const std::string &desc) override;
 
     //! normal constructor
-    Player(std::shared_ptr<NetInterface> newConnection);
+    explicit Player(std::shared_ptr<NetInterface> newConnection);
 
     //! check if username/password is ok
     void check_logindata();
@@ -353,7 +353,7 @@ public:
     //�dert die Qualit� eines Items an einer bestimmten Stelle
     void changeQualityAt(unsigned char pos, short int amount);
 
-    inline bool isMonitoringClient() {
+    inline bool isMonitoringClient() const {
         return monitoringClient;
     }
 
