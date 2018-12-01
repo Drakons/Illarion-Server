@@ -5,6 +5,10 @@ config.guess
 config.sub
 libtool
 ltmain.sh
+src/illarion
+src/libserver.a
+src/version.hpp
+src/script/libscriptbinding.a
 m4/libtool.m4
 m4/ltoptions.m4
 m4/ltsugar.m4

@@ -241,9 +241,9 @@ void LuaScript::writeErrorMsg() {
 
 void LuaScript::writeCastErrorMsg(const std::string &entryPoint, const luabind::cast_failed &e) {
     std::string script = getFileName();
-    char *expectedType = abi::__cxa_demangle(e.info().name(), 0, 0, 0);
-    Logger::error(LogFacility::Script) << "Invalid return type in " << script << "." << entryPoint << ": " << "Expected type " << expectedType << Log::end;
-    free(expectedType);
+    //char *expectedType = abi::__cxa_demangle(e.info().name(), 0, 0, 0);
+    Logger::error(LogFacility::Script) << "Invalid return type in " << script << "." << entryPoint << ": " << "Expected type " << e.info().name() << Log::end;
+    //free(expectedType);
 }
 
 void LuaScript::writeDebugMsg(const std::string &msg) {
